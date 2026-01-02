@@ -1,0 +1,473 @@
+{
+  "id": "htb-autopwn-0001-main-workflow",
+  "name": "htb-autopwn",
+  "description": "Master HTB workflow - orchestrates full attack chain from recon to root",
+  "flowchart": {
+    "blocks": {
+      "start-001": {
+        "id": "start-001",
+        "type": "start",
+        "name": "START",
+        "position": {
+          "x": 200,
+          "y": 50
+        }
+      },
+      "setup-001": {
+        "id": "setup-001",
+        "type": "prompt",
+        "name": "SETUP WORKSPACE",
+        "position": {
+          "x": 200,
+          "y": 150
+        },
+        "prompt": "Setting up workspace for HTB challenge.\n\nTarget: $1\nChallenge name: $2\n\nCreate any missing directories:\n  ./htb-targets/$2/\n  ./htb-targets/$2/scans/\n  ./htb-targets/$2/loot/\n  ./htb-targets/$2/exploits/\n  ./htb-targets/$2/notes/\n  ./htb-targets/$2/.venv/\n\nSet up Python environment:\n- Use uv to create/sync a venv: cd ./htb-targets/$2 && uv venv\n- You can install any packages needed later with: uv pip install <package>\n- Common packages for exploitation: requests, pwntools, paramiko, impacket\n\nIf ./htb-targets/$2/notes/session.md doesn't exist, create it with:\n- Target IP: $1\n- Challenge: $2\n- Start time: (current timestamp)\n\nConfirm setup is complete.",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "workspacePath": {
+              "type": "string"
+            },
+            "setupComplete": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "workspacePath",
+            "setupComplete"
+          ]
+        },
+        "sound_effect": null
+      },
+      "check-state-001": {
+        "id": "check-state-001",
+        "type": "prompt",
+        "name": "CHECK STATE",
+        "position": {
+          "x": 200,
+          "y": 225
+        },
+        "prompt": "Check what work has already been completed for $2.\n\nCheck for these files:\n1. ./htb-targets/$2/services.json - if exists, recon is done\n2. ./htb-targets/$2/vulns.json - if exists, research is done\n3. ./htb-targets/$2/session-log.md - read to see previous attempts\n\nIf files exist, read them to load context.\n\nReturn:\n- needsRecon: true if services.json doesn't exist or is incomplete\n- needsResearch: true if vulns.json doesn't exist or is incomplete\n- attemptNumber: 1 (or higher if resuming)\n- contextSummary: what's been done so far",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "needsRecon": {
+              "type": "boolean"
+            },
+            "needsResearch": {
+              "type": "boolean"
+            },
+            "attemptNumber": {
+              "type": "integer"
+            },
+            "contextSummary": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "needsRecon",
+            "needsResearch",
+            "attemptNumber",
+            "contextSummary"
+          ]
+        },
+        "sound_effect": null
+      },
+      "refresh-001": {
+        "id": "refresh-001",
+        "type": "refresh",
+        "name": "REFRESH STATE",
+        "position": {
+          "x": 200,
+          "y": 262
+        }
+      },
+      "branch-recon-001": {
+        "id": "branch-recon-001",
+        "type": "branch",
+        "name": "NEEDS RECON?",
+        "position": {
+          "x": 200,
+          "y": 300
+        },
+        "condition": "needsRecon"
+      },
+      "recon-001": {
+        "id": "recon-001",
+        "type": "command",
+        "name": "RUN RECON",
+        "position": {
+          "x": 200,
+          "y": 300
+        },
+        "command_name": "htb-recon",
+        "arguments": "$1",
+        "inherit_variables": true,
+        "merge_output": true
+      },
+      "save-recon-001": {
+        "id": "save-recon-001",
+        "type": "prompt",
+        "name": "SAVE RECON",
+        "position": {
+          "x": 200,
+          "y": 450
+        },
+        "prompt": "Recon phase complete for $1 ($2).\n\nTasks:\n1. Move services.json to ./htb-targets/$2/services.json if not already there\n2. Move recon-report-$1.md to ./htb-targets/$2/scans/recon-summary.md\n3. Check if ./htb-targets/$2/session-log.md exists:\n   - If it exists: Read it to see previous progress, then append new recon entry\n   - If it doesn't exist: Create it with header:\n\n# HTB Session Log: $2\n\n## Target Information\n- IP: $1\n- Challenge: $2\n- Started: <current timestamp>\n\n## Progress Log\n\n### [timestamp] RECON COMPLETE\n- Services found: {{services}}\n- Service count: {{serviceCount}}\n\n4. Update ./htb-targets/$2/notes/session.md with recon results\n\nConfirm files are in place.",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "savedTo": {
+              "type": "string"
+            },
+            "recommendedVector": {
+              "type": "string"
+            },
+            "attemptNumber": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          "required": [
+            "savedTo",
+            "recommendedVector",
+            "attemptNumber"
+          ]
+        },
+        "sound_effect": null
+      },
+      "refresh-002": {
+        "id": "refresh-002",
+        "type": "refresh",
+        "name": "REFRESH STATE",
+        "position": {
+          "x": 200,
+          "y": 487
+        }
+      },
+      "branch-research-001": {
+        "id": "branch-research-001",
+        "type": "branch",
+        "name": "NEEDS RESEARCH?",
+        "position": {
+          "x": 200,
+          "y": 525
+        },
+        "condition": "needsResearch"
+      },
+      "research-001": {
+        "id": "research-001",
+        "type": "command",
+        "name": "RUN RESEARCH",
+        "position": {
+          "x": 400,
+          "y": 500
+        },
+        "command_name": "htb-research",
+        "arguments": "$1",
+        "inherit_variables": true,
+        "merge_output": true
+      },
+      "exploit-loop-001": {
+        "id": "exploit-loop-001",
+        "type": "prompt",
+        "name": "EXPLOIT LOOP",
+        "position": {
+          "x": 200,
+          "y": 650
+        },
+        "prompt": "Exploitation phase for $1 (challenge: $2).\n\nYou have up to 5 attempts to exploit the target. Current attempt: {{attemptNumber}} (default 1 if not set).\n\nFirst, load context from target directory:\n1. Read ./htb-targets/$2/vulns.json to see available vectors\n2. Read ./htb-targets/$2/session-log.md to see what's been tried\n3. Check ./htb-targets/$2/exploits/ for existing exploit scripts\n\nPython Environment:\n- A venv is available at ./htb-targets/$2/.venv/\n- Install packages as needed: cd ./htb-targets/$2 && uv pip install <package>\n- Run scripts with venv: cd ./htb-targets/$2 && .venv/bin/python3 exploits/<script>.py\n- Common packages: requests, pwntools, paramiko, impacket, beautifulsoup4\n\nThen execute exploitation:\n1. Find the highest priority UNTESTED vector (tested=false)\n   - Priority: severity (critical>high>medium>low), then confidence\n2. If no untested vectors remain or attemptNumber > 5, return continueLoop=false\n3. Research the CVE/vulnerability - search for public POCs, exploit-db entries\n4. Write a Python exploit script to ./htb-targets/$2/exploits/<vector-name>.py\n   - Install any needed packages with uv pip install\n   - Use requests for HTTP, pwntools for shells\n   - Script should be standalone and runnable\n   - Include automatic flag capture if possible (search for user.txt, root.txt)\n5. Execute the exploit: cd ./htb-targets/$2 && .venv/bin/python3 exploits/<script>.py\n6. Analyze the output:\n   - Did we get a shell?\n   - Did we capture any flags?\n   - What user are we running as?\n7. Update vulns.json: set tested=true and result=\"success|failed|error: <reason>\"\n8. Append to ./htb-targets/$2/session-log.md with timestamp and results\n9. Return structured output\n\nBe completely autonomous - make all decisions yourself.",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "exploitSuccess": {
+              "type": "boolean"
+            },
+            "flagCaptured": {
+              "type": "boolean"
+            },
+            "shellObtained": {
+              "type": "boolean"
+            },
+            "currentUser": {
+              "type": "string"
+            },
+            "attemptNumber": {
+              "type": "integer"
+            },
+            "vectorTested": {
+              "type": "string"
+            },
+            "continueLoop": {
+              "type": "boolean"
+            },
+            "summary": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "exploitSuccess",
+            "attemptNumber",
+            "continueLoop",
+            "summary"
+          ]
+        },
+        "sound_effect": null
+      },
+      "refresh-003": {
+        "id": "refresh-003",
+        "type": "refresh",
+        "name": "REFRESH STATE",
+        "position": {
+          "x": 200,
+          "y": 700
+        }
+      },
+      "branch-continue-001": {
+        "id": "branch-continue-001",
+        "type": "branch",
+        "name": "CONTINUE?",
+        "position": {
+          "x": 200,
+          "y": 750
+        },
+        "condition": "continueLoop"
+      },
+      "post-exploit-001": {
+        "id": "post-exploit-001",
+        "type": "prompt",
+        "name": "POST EXPLOIT",
+        "position": {
+          "x": 400,
+          "y": 800
+        },
+        "prompt": "Exploitation succeeded for $1 ($2)!\n\nCurrent state:\n- Shell obtained: {{shellObtained}}\n- Flags captured: {{flagCaptured}}\n- Current user: {{currentUser}}\n\nTasks:\n1. If we have a shell, enumerate the system:\n   - whoami, id, hostname, uname -a\n   - Look for user.txt and root.txt\n   - Check sudo permissions\n   - Look for interesting files\n2. Save any captured flags to ./htb-targets/$2/loot/\n3. Update session-log.md with final results\n4. Write a final summary to ./htb-targets/$2/notes/session.md\n\nProvide completion summary.",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "userFlag": {
+              "type": "string"
+            },
+            "rootFlag": {
+              "type": "string"
+            },
+            "finalSummary": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "finalSummary"
+          ]
+        },
+        "sound_effect": null
+      },
+      "end-001": {
+        "id": "end-001",
+        "type": "end",
+        "name": "END",
+        "position": {
+          "x": 200,
+          "y": 900
+        }
+      }
+    },
+    "connections": [
+      {
+        "id": "conn-001",
+        "source_block_id": "start-001",
+        "target_block_id": "setup-001",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-002",
+        "source_block_id": "setup-001",
+        "target_block_id": "check-state-001",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-003",
+        "source_block_id": "check-state-001",
+        "target_block_id": "refresh-001",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-003b",
+        "source_block_id": "refresh-001",
+        "target_block_id": "branch-recon-001",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-004",
+        "source_block_id": "branch-recon-001",
+        "target_block_id": "recon-001",
+        "source_port": "right",
+        "target_port": "left",
+        "is_true_path": true,
+        "condition": null,
+        "label": "needs recon"
+      },
+      {
+        "id": "conn-005",
+        "source_block_id": "branch-recon-001",
+        "target_block_id": "refresh-002",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": false,
+        "condition": null,
+        "label": "skip recon"
+      },
+      {
+        "id": "conn-006",
+        "source_block_id": "recon-001",
+        "target_block_id": "save-recon-001",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-007",
+        "source_block_id": "save-recon-001",
+        "target_block_id": "refresh-002",
+        "source_port": "bottom",
+        "target_port": "right",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-007b",
+        "source_block_id": "refresh-002",
+        "target_block_id": "branch-research-001",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-008",
+        "source_block_id": "branch-research-001",
+        "target_block_id": "research-001",
+        "source_port": "right",
+        "target_port": "top",
+        "is_true_path": true,
+        "condition": null,
+        "label": "needs research"
+      },
+      {
+        "id": "conn-009",
+        "source_block_id": "branch-research-001",
+        "target_block_id": "exploit-loop-001",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": false,
+        "condition": null,
+        "label": "skip research"
+      },
+      {
+        "id": "conn-010",
+        "source_block_id": "research-001",
+        "target_block_id": "exploit-loop-001",
+        "source_port": "bottom",
+        "target_port": "left",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-011",
+        "source_block_id": "exploit-loop-001",
+        "target_block_id": "refresh-003",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-011b",
+        "source_block_id": "refresh-003",
+        "target_block_id": "branch-continue-001",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-012",
+        "source_block_id": "branch-continue-001",
+        "target_block_id": "exploit-loop-001",
+        "source_port": "right",
+        "target_port": "right",
+        "is_true_path": true,
+        "condition": null,
+        "label": "loop back"
+      },
+      {
+        "id": "conn-013",
+        "source_block_id": "branch-continue-001",
+        "target_block_id": "post-exploit-001",
+        "source_port": "left",
+        "target_port": "left",
+        "is_true_path": false,
+        "condition": null,
+        "label": "done"
+      },
+      {
+        "id": "conn-014",
+        "source_block_id": "post-exploit-001",
+        "target_block_id": "end-001",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      }
+    ],
+    "start_block_id": "start-001"
+  },
+  "metadata": {
+    "created": "2025-01-02T00:00:00",
+    "modified": "2026-01-02T11:26:23.488496",
+    "version": "1.0",
+    "author": "htb-autopwner",
+    "tags": [
+      "htb",
+      "master",
+      "autopwn"
+    ]
+  },
+  "arguments": [
+    {
+      "name": "target",
+      "description": "Target IP address",
+      "required": true,
+      "default": null
+    },
+    {
+      "name": "challenge",
+      "description": "Challenge/box name (e.g., 'editor', 'lame')",
+      "required": true,
+      "default": null
+    }
+  ]
+}

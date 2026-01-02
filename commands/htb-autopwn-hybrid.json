@@ -1,0 +1,255 @@
+{
+  "id": "htb-autopwn-hybrid",
+  "name": "htb-autopwn-hybrid",
+  "description": "HTB autopwn hybrid - FlowCoder orchestration with Claude-guided execution",
+  "flowchart": {
+    "blocks": {
+      "start-001": {
+        "id": "start-001",
+        "type": "start",
+        "name": "START",
+        "position": {
+          "x": 200,
+          "y": 50
+        }
+      },
+      "parse-001": {
+        "id": "parse-001",
+        "type": "prompt",
+        "name": "PARSE TARGET INFO",
+        "position": {
+          "x": 200,
+          "y": 150
+        },
+        "prompt": "Parse the target information string and initialize the investigation graph.\n\nInput: $1\n\nExtract:\n1. Target IP address (required)\n2. Challenge/box name (required)\n3. Any additional context (optional): suspected services, vulnerabilities, hints, etc.\n\nThen initialize the attack graph:\n```python\nfrom lib.attack_graph import AttackGraph, NodeType\n\n# Create graph\ngraph = AttackGraph(target=extracted_ip, challenge=extracted_name)\n\n# Add host node\nhost_id = graph.add_node(NodeType.HOST, label=extracted_ip)\n\n# If additional context provided (suspected services, vulns, etc.):\n# Add those as nodes too with low confidence weights\n\n# Save graph\ngraph.save(f'htb-targets/{extracted_name}/attack-graph.json')\n```\n\nReturn the extracted values.",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "targetIp": {
+              "type": "string"
+            },
+            "challengeName": {
+              "type": "string"
+            },
+            "contextNotes": {
+              "type": "string"
+            },
+            "graphInitialized": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "targetIp",
+            "challengeName",
+            "contextNotes",
+            "graphInitialized"
+          ]
+        },
+        "sound_effect": null
+      },
+      "init-001": {
+        "id": "init-001",
+        "type": "variable",
+        "name": "INIT COUNTER",
+        "position": {
+          "x": 200,
+          "y": 250
+        },
+        "variable_name": "attemptNumber",
+        "variable_value": "0",
+        "variable_type": "int"
+      },
+      "guided-001": {
+        "id": "guided-001",
+        "type": "prompt",
+        "name": "RUN AUTOPWN GUIDED",
+        "position": {
+          "x": 350,
+          "y": 400
+        },
+        "prompt": "Execute the Claude-guided autopwn workflow for {{targetIp}} ({{challengeName}}).\n\nContext notes: {{contextNotes}}\n\nInvoke the skill: /htb-autopwn-guided \"{{targetIp}} {{challengeName}}\"\n\nThis will autonomously:\n- Load the initialized attack graph\n- Check existing state (resume capability)\n- Run or skip recon as needed\n- Run or skip research as needed\n- Execute exploitation loop intelligently\n- Update graph with discoveries\n- Capture flags\n\nThe skill has full autonomy to make decisions. Your role is to execute it and capture the results.\n\nAfter execution, provide a summary of what was accomplished.",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "success": {
+              "type": "boolean"
+            },
+            "userFlag": {
+              "type": "string"
+            },
+            "rootFlag": {
+              "type": "string"
+            },
+            "summary": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "success",
+            "summary"
+          ]
+        },
+        "sound_effect": null
+      },
+      "increment-001": {
+        "id": "increment-001",
+        "type": "bash",
+        "name": "INCREMENT",
+        "position": {
+          "x": 200,
+          "y": 350
+        },
+        "command": "echo $(({{attemptNumber}} + 1))",
+        "capture_output": true,
+        "output_variable": "attemptNumber",
+        "output_type": "int",
+        "working_directory": "",
+        "continue_on_error": false,
+        "exit_code_variable": ""
+      },
+      "check-001": {
+        "id": "check-001",
+        "type": "branch",
+        "name": "SUCCESS OR MAX?",
+        "position": {
+          "x": 200,
+          "y": 450
+        },
+        "condition": "success || attemptNumber >= 3"
+      },
+      "report-001": {
+        "id": "report-001",
+        "type": "prompt",
+        "name": "FINAL REPORT",
+        "position": {
+          "x": 400,
+          "y": 550
+        },
+        "prompt": "Generate final report for {{challengeName}} ({{targetIp}}).\n\nAttempts: {{attemptNumber}}\nSuccess: {{success}}\nUser flag: {{userFlag}}\nRoot flag: {{rootFlag}}\n\nSummarize the entire session and save to htb-targets/{{challengeName}}/REPORT.md\n\nAlso save the final attack graph state.",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "reportSaved": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "reportSaved"
+          ]
+        },
+        "sound_effect": null
+      },
+      "end-001": {
+        "id": "end-001",
+        "type": "end",
+        "name": "END",
+        "position": {
+          "x": 200,
+          "y": 650
+        }
+      }
+    },
+    "connections": [
+      {
+        "id": "conn-001",
+        "source_block_id": "start-001",
+        "target_block_id": "parse-001",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-001b",
+        "source_block_id": "parse-001",
+        "target_block_id": "init-001",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-002",
+        "source_block_id": "init-001",
+        "target_block_id": "guided-001",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-003",
+        "source_block_id": "guided-001",
+        "target_block_id": "increment-001",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-004",
+        "source_block_id": "increment-001",
+        "target_block_id": "check-001",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-005",
+        "source_block_id": "check-001",
+        "target_block_id": "report-001",
+        "source_port": "right",
+        "target_port": "left",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-006",
+        "source_block_id": "check-001",
+        "target_block_id": "guided-001",
+        "source_port": "left",
+        "target_port": "left",
+        "is_true_path": false,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-007",
+        "source_block_id": "report-001",
+        "target_block_id": "end-001",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      }
+    ],
+    "start_block_id": "start-001"
+  },
+  "metadata": {
+    "created": "2026-01-02T10:45:00",
+    "modified": "2026-01-02T11:27:11.868229",
+    "version": "1.0",
+    "author": "htb-autopwner-hybrid",
+    "tags": [
+      "htb",
+      "autopwn",
+      "hybrid"
+    ]
+  },
+  "arguments": [
+    {
+      "name": "target_info",
+      "description": "Target info string (e.g., '10.10.11.80 editor' or 'target: 10.10.11.80, challenge: editor, notes: XWiki suspected')",
+      "required": true,
+      "default": null
+    }
+  ]
+}

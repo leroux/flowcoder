@@ -1,0 +1,73 @@
+{
+  "id": "htb-research-0001",
+  "name": "htb-research",
+  "description": "Research CVEs and vulnerabilities for discovered services",
+  "flowchart": {
+    "blocks": {
+      "start-001": {
+        "id": "start-001",
+        "type": "start",
+        "name": "START",
+        "position": {"x": 200, "y": 50}
+      },
+      "research-001": {
+        "id": "research-001",
+        "type": "prompt",
+        "name": "CVE RESEARCH",
+        "position": {"x": 200, "y": 200},
+        "prompt": "Research vulnerabilities for target $1.\n\nRead ./services.json to get the list of discovered services.\n\nFor EACH service with a version:\n1. Search for CVEs affecting that exact version\n2. Search exploit-db for public exploits\n3. Search GitHub for POC code\n4. Check if authentication is required\n5. Assess exploitability (complexity, reliability)\n\nPrioritize by:\n- Severity: critical > high > medium > low\n- Confidence: known working exploit > POC exists > theoretical\n- Auth required: unauthenticated > authenticated\n\nWrite vulns.json with this structure:\n\n{\n  \"target\": \"$1\",\n  \"research_timestamp\": \"<current ISO timestamp>\",\n  \"vectors\": [\n    {\n      \"id\": \"vec-001\",\n      \"type\": \"cve|misconfiguration|default_creds|info_disclosure\",\n      \"name\": \"<CVE-XXXX-XXXXX or descriptive name>\",\n      \"service\": \"<service name and version>\",\n      \"port\": <port number>,\n      \"severity\": \"critical|high|medium|low\",\n      \"confidence\": \"high|medium|low\",\n      \"description\": \"<what the vulnerability is and how to exploit it>\",\n      \"references\": [\"<urls to POCs, exploit-db, github repos>\"],\n      \"exploit_available\": true|false,\n      \"auth_required\": true|false,\n      \"tested\": false,\n      \"result\": null\n    }\n  ]\n}\n\nBe thorough - search multiple sources for each service.",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "vectorCount": {"type": "integer"},
+            "topVector": {"type": "string"},
+            "vulnsFileWritten": {"type": "boolean"},
+            "researchSummary": {"type": "string"}
+          },
+          "required": ["vectorCount", "topVector", "vulnsFileWritten", "researchSummary"]
+        },
+        "sound_effect": null
+      },
+      "end-001": {
+        "id": "end-001",
+        "type": "end",
+        "name": "END",
+        "position": {"x": 200, "y": 400}
+      }
+    },
+    "connections": [
+      {
+        "id": "conn-001",
+        "source_block_id": "start-001",
+        "target_block_id": "research-001",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": true
+      },
+      {
+        "id": "conn-002",
+        "source_block_id": "research-001",
+        "target_block_id": "end-001",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": true
+      }
+    ],
+    "start_block_id": "start-001"
+  },
+  "metadata": {
+    "created": "2026-01-02T00:00:00",
+    "modified": "2026-01-02T00:00:00",
+    "version": "1.0",
+    "author": "htb-autopwner",
+    "tags": ["htb", "research", "cve"]
+  },
+  "arguments": [
+    {
+      "name": "target",
+      "description": "Target IP address",
+      "required": true,
+      "default": null
+    }
+  ]
+}

@@ -133,6 +133,7 @@ class ClaudeAgentService(BaseService):
                 "permission_mode": self.permission_mode,
                 "cwd": self.cwd,
                 "model": self.model,
+                "setting_sources": ["project"],  # Enable skills from .claude/skills/
                 "env": {
                     "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "64000"
                 },

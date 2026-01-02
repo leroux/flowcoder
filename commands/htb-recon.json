@@ -1,0 +1,406 @@
+{
+  "id": "a1b2c3d4-htb1-recon-0001-000000000001",
+  "name": "htb-recon",
+  "description": "HTB reconnaissance workflow - scans target and enumerates discovered services",
+  "flowchart": {
+    "blocks": {
+      "start-001": {
+        "id": "start-001",
+        "type": "start",
+        "name": "START",
+        "position": {
+          "x": 200,
+          "y": 50
+        }
+      },
+      "recon-001": {
+        "id": "recon-001",
+        "type": "prompt",
+        "name": "RUSTSCAN RECON",
+        "position": {
+          "x": 200,
+          "y": 150
+        },
+        "prompt": "Run a comprehensive rustscan on target $1.\n\nRun: rustscan -a $1 -- -sV -sC\n\nRustscan will quickly scan all 65535 ports and pass open ports to nmap for service detection. This is much faster than pure nmap.\n\nIf rustscan is not available, fall back to: nmap -sV -sC -p- $1\n\nAfter the scan completes, analyze the results and identify:\n1. All open ports and services\n2. Service versions where detected\n3. Any interesting findings from NSE scripts\n4. Potential attack vectors based on services found\n\nWhat services were discovered?",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "services": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "port": {
+                    "type": "integer"
+                  },
+                  "service": {
+                    "type": "string"
+                  },
+                  "version": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "hasWeb": {
+              "type": "boolean"
+            },
+            "hasSMB": {
+              "type": "boolean"
+            },
+            "hasSSH": {
+              "type": "boolean"
+            },
+            "hasFTP": {
+              "type": "boolean"
+            },
+            "potentialVectors": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "services",
+            "hasWeb",
+            "hasSMB",
+            "hasSSH",
+            "hasFTP",
+            "potentialVectors"
+          ]
+        },
+        "sound_effect": null
+      },
+      "branch-web-001": {
+        "id": "branch-web-001",
+        "type": "branch",
+        "name": "HAS WEB?",
+        "position": {
+          "x": 200,
+          "y": 300
+        },
+        "condition": "hasWeb"
+      },
+      "enum-web-001": {
+        "id": "enum-web-001",
+        "type": "prompt",
+        "name": "WEB ENUM",
+        "position": {
+          "x": 400,
+          "y": 300
+        },
+        "prompt": "Web service detected on $1. Perform web enumeration:\n\n1. Check what's on the main page (curl or browser)\n2. Look for robots.txt, sitemap.xml\n3. Run directory enumeration: gobuster dir -u http://$1 -w /usr/share/wordlists/dirb/common.txt (or feroxbuster)\n4. Check for common files: .git, .env, backup files, etc.\n5. Identify the technology stack (headers, whatweb, wappalyzer)\n6. Look for subdomains if there's a hostname\n\nIf HTTPS is available, check that too.\n\nReport your findings.",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "webFindings": {
+              "type": "string"
+            },
+            "directories": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "technologies": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "interestingFiles": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "webFindings",
+            "directories",
+            "technologies"
+          ]
+        },
+        "sound_effect": null
+      },
+      "branch-smb-001": {
+        "id": "branch-smb-001",
+        "type": "branch",
+        "name": "HAS SMB?",
+        "position": {
+          "x": 200,
+          "y": 450
+        },
+        "condition": "hasSMB"
+      },
+      "enum-smb-001": {
+        "id": "enum-smb-001",
+        "type": "prompt",
+        "name": "SMB ENUM",
+        "position": {
+          "x": 400,
+          "y": 450
+        },
+        "prompt": "SMB service detected on $1. Perform SMB enumeration:\n\n1. List shares: smbclient -L //$1 -N\n2. Try anonymous access to shares\n3. Run enum4linux: enum4linux -a $1\n4. Check for known vulnerabilities (EternalBlue, etc.)\n5. Look for accessible files, credentials, or sensitive info\n\nReport your findings.",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "smbFindings": {
+              "type": "string"
+            },
+            "shares": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "accessibleFiles": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "credentials": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "smbFindings",
+            "shares"
+          ]
+        },
+        "sound_effect": null
+      },
+      "branch-ftp-001": {
+        "id": "branch-ftp-001",
+        "type": "branch",
+        "name": "HAS FTP?",
+        "position": {
+          "x": 200,
+          "y": 600
+        },
+        "condition": "hasFTP"
+      },
+      "enum-ftp-001": {
+        "id": "enum-ftp-001",
+        "type": "prompt",
+        "name": "FTP ENUM",
+        "position": {
+          "x": 400,
+          "y": 600
+        },
+        "prompt": "FTP service detected on $1. Perform FTP enumeration:\n\n1. Try anonymous login: ftp $1 (user: anonymous)\n2. List accessible files and directories\n3. Check for writable directories\n4. Download any interesting files\n5. Check FTP version for known vulnerabilities\n\nReport your findings.",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "ftpFindings": {
+              "type": "string"
+            },
+            "anonymousAccess": {
+              "type": "boolean"
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "writable": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "ftpFindings",
+            "anonymousAccess"
+          ]
+        },
+        "sound_effect": null
+      },
+      "report-001": {
+        "id": "report-001",
+        "type": "prompt",
+        "name": "SAVE SERVICES",
+        "position": {
+          "x": 200,
+          "y": 750
+        },
+        "prompt": "Recon complete for $1.\n\nSummarize all findings:\n- Services discovered: {{services}}\n- Web findings (if any): {{webFindings}}\n- SMB findings (if any): {{smbFindings}}\n- FTP findings (if any): {{ftpFindings}}\n\nTasks:\n1. Write a structured services.json to the current directory:\n\n{\n  \"target\": \"$1\",\n  \"scan_timestamp\": \"<current ISO timestamp>\",\n  \"services\": [\n    {\n      \"port\": <port number>,\n      \"protocol\": \"tcp|udp\",\n      \"service\": \"<service name>\",\n      \"version\": \"<version string if detected>\",\n      \"product\": \"<product name if detected>\",\n      \"extraInfo\": \"<any additional info from nmap scripts>\"\n    }\n  ],\n  \"webServices\": [\n    {\n      \"port\": <port>,\n      \"url\": \"<base url>\",\n      \"title\": \"<page title>\",\n      \"technologies\": [\"<detected tech stack>\"],\n      \"directories\": [\"<discovered paths>\"],\n      \"interestingFiles\": [\"<notable files found>\"]\n    }\n  ],\n  \"findings\": {\n    \"web\": \"{{webFindings}}\",\n    \"smb\": \"{{smbFindings}}\",\n    \"ftp\": \"{{ftpFindings}}\"\n  }\n}\n\n2. Write human-readable summary to ./recon-report-$1.md\n\nProvide summary.",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "summary": {
+              "type": "string"
+            },
+            "serviceCount": {
+              "type": "integer"
+            },
+            "servicesFileWritten": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "summary",
+            "serviceCount",
+            "servicesFileWritten"
+          ]
+        },
+        "sound_effect": null
+      },
+      "end-001": {
+        "id": "end-001",
+        "type": "end",
+        "name": "END",
+        "position": {
+          "x": 200,
+          "y": 900
+        }
+      }
+    },
+    "connections": [
+      {
+        "id": "conn-001",
+        "source_block_id": "start-001",
+        "target_block_id": "recon-001",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-002",
+        "source_block_id": "recon-001",
+        "target_block_id": "branch-web-001",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-003",
+        "source_block_id": "branch-web-001",
+        "target_block_id": "enum-web-001",
+        "source_port": "right",
+        "target_port": "left",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-004",
+        "source_block_id": "branch-web-001",
+        "target_block_id": "branch-smb-001",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": false,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-005",
+        "source_block_id": "enum-web-001",
+        "target_block_id": "branch-smb-001",
+        "source_port": "bottom",
+        "target_port": "right",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-006",
+        "source_block_id": "branch-smb-001",
+        "target_block_id": "enum-smb-001",
+        "source_port": "right",
+        "target_port": "left",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-007",
+        "source_block_id": "branch-smb-001",
+        "target_block_id": "branch-ftp-001",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": false,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-008",
+        "source_block_id": "enum-smb-001",
+        "target_block_id": "branch-ftp-001",
+        "source_port": "bottom",
+        "target_port": "right",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-009",
+        "source_block_id": "branch-ftp-001",
+        "target_block_id": "enum-ftp-001",
+        "source_port": "right",
+        "target_port": "left",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-010",
+        "source_block_id": "branch-ftp-001",
+        "target_block_id": "report-001",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": false,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-011",
+        "source_block_id": "enum-ftp-001",
+        "target_block_id": "report-001",
+        "source_port": "bottom",
+        "target_port": "right",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      },
+      {
+        "id": "conn-012",
+        "source_block_id": "report-001",
+        "target_block_id": "end-001",
+        "source_port": "bottom",
+        "target_port": "top",
+        "is_true_path": true,
+        "condition": null,
+        "label": null
+      }
+    ],
+    "start_block_id": "start-001"
+  },
+  "metadata": {
+    "created": "2025-01-02T00:00:00",
+    "modified": "2026-01-02T07:53:48.209648",
+    "version": "1.0",
+    "author": "htb-autopwner",
+    "tags": [
+      "htb",
+      "recon",
+      "enumeration"
+    ]
+  },
+  "arguments": [
+    {
+      "name": "target",
+      "description": "Target IP address",
+      "required": true,
+      "default": null
+    }
+  ]
+}
